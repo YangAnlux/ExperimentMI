@@ -14,6 +14,18 @@ import android.content.Context;            // 上下文环境
 import android.content.DialogInterface;    // 对话框交互接口
 import android.text.format.DateFormat;     // 日期格式化工具
 import android.text.format.DateUtils;      // 日期工具类
+import java.util.Calendar;
+
+import net.micode.notes.R;
+import net.micode.notes.ui.DateTimePicker;
+import net.micode.notes.ui.DateTimePicker.OnDateTimeChangedListener;
+
+import android.app.AlertDialog;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.DialogInterface.OnClickListener;
+import android.text.format.DateFormat;
+import android.text.format.DateUtils;
 
 // 类注释 =============================================================
 /**
@@ -80,7 +92,8 @@ public class DateTimePickerDialog extends AlertDialog implements OnClickListener
         
         // 设置对话框按钮
         setButton(context.getString(R.string.datetime_dialog_ok), this);       // 确认按钮
-        setButton2(context.getString(R.string.datetime_dialog_cancel), null);  // 取消按钮
+        setButton2(context.getString(R.string.datetime_dialog_cancel), (OnClickListener)null);
+        // 取消按钮
         
         // 配置时间显示格式
         set24HourView(DateFormat.is24HourFormat(context));

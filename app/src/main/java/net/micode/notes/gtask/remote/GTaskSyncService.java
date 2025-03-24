@@ -31,6 +31,12 @@ package net.micode.notes.gtask.remote;
  * public static boolean isSyncing()  判读是否在进行同步
  * public static String getProgressString()  获取当前进度的信息
  */
+import android.app.Activity;
+import android.app.Service;
+import android.content.Context;
+import android.content.Intent;
+import android.os.Bundle;
+import android.os.IBinder;
 
 public class GTaskSyncService extends Service {
     public final static String ACTION_STRING_NAME = "sync_action_type";

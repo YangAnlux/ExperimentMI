@@ -16,6 +16,37 @@
 
 package net.micode.notes.gtask.remote;
 
+import android.app.Activity;
+import android.content.ContentResolver;
+import android.content.ContentUris;
+import android.content.ContentValues;
+import android.content.Context;
+import android.database.Cursor;
+import android.util.Log;
+
+import net.micode.notes.R;
+import net.micode.notes.data.Notes;
+import net.micode.notes.data.Notes.DataColumns;
+import net.micode.notes.data.Notes.NoteColumns;
+import net.micode.notes.gtask.data.MetaData;
+import net.micode.notes.gtask.data.Node;
+import net.micode.notes.gtask.data.SqlNote;
+import net.micode.notes.gtask.data.Task;
+import net.micode.notes.gtask.data.TaskList;
+import net.micode.notes.gtask.exception.ActionFailureException;
+import net.micode.notes.gtask.exception.NetworkFailureException;
+import net.micode.notes.tool.DataUtils;
+import net.micode.notes.tool.GTaskStringUtils;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+
 public class GTaskManager {
     private static final String TAG = GTaskManager.class.getSimpleName();
     public static final int STATE_SUCCESS = 0;

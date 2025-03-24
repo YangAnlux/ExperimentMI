@@ -55,9 +55,9 @@ dependencies {
 //        "exclude" to listOf("")
 //    )))
     //修改为如下代码：
-    implementation(files("D:\\Code\\AndroidProject\\Notesmaster\\httpcomponents-client-4.5.14-bin\\lib\\httpclient-osgi-4.5.14.jar"))
-    implementation(files("D:\\Code\\AndroidProject\\Notesmaster\\httpcomponents-client-4.5.14-bin\\lib\\httpclient-win-4.5.14.jar"))
-    implementation(files("D:\\Code\\AndroidProject\\Notesmaster\\httpcomponents-client-4.5.14-bin\\lib\\httpcore-4.4.16.jar"))
+    implementation(files("..\\httpcomponents-client-4.5.14-bin\\lib\\httpclient-osgi-4.5.14.jar"))
+    implementation(files("..\\httpcomponents-client-4.5.14-bin\\lib\\httpclient-win-4.5.14.jar"))
+    implementation(files("..\\httpcomponents-client-4.5.14-bin\\lib\\httpcore-4.4.16.jar"))
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
