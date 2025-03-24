@@ -55,6 +55,7 @@ import android.widget.AdapterView.OnItemClickListener;
 import android.widget.AdapterView.OnItemLongClickListener;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ListView;
 import android.widget.PopupMenu;
 import android.widget.TextView;
@@ -79,6 +80,8 @@ import java.io.InputStreamReader;
 import java.util.HashSet;
 
 public class NotesListActivity extends Activity implements OnClickListener, OnItemLongClickListener {
+
+
     private static final int FOLDER_NOTE_LIST_QUERY_TOKEN = 0;
 
     private static final int FOLDER_LIST_QUERY_TOKEN      = 1;
@@ -134,6 +137,13 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
 
     private final static int REQUEST_CODE_OPEN_NODE = 102;
     private final static int REQUEST_CODE_NEW_NODE  = 103;
+
+    private Button btn_change_background;
+    private FrameLayout fl_note_list;
+    private final int[] fl_note_list_backgrounds = {
+            R.drawable.pengyuyan,R.drawable.huojianhua,R.drawable.xuezhiqian,
+            R.drawable.wangsulong,R.drawable.huge};
+    private int curIndex = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -223,6 +233,9 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
         mAddNewNote = (Button) findViewById(R.id.btn_new_note);
         mAddNewNote.setOnClickListener(this);
         mAddNewNote.setOnTouchListener(new NewNoteOnTouchListener());
+        btn_change_background = findViewById(R.id.btn_change_background);
+        fl_note_list = findViewById(R.id.fl_note_list);
+        btn_change_background.setOnClickListener(this);
         mDispatch = false;
         mDispatchY = 0;
         mOriginY = 0;
@@ -561,6 +574,10 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
         switch (v.getId()) {
             case R.id.btn_new_note:
                 createNewNote();
+                break;
+            case R.id.btn_change_background:
+                fl_note_list.setBackgroundResource(fl_note_list_backgrounds[curIndex]);
+                curIndex = (curIndex + 1)%fl_note_list_backgrounds.length;
                 break;
             default:
                 break;
