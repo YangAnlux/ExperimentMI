@@ -31,10 +31,11 @@ import java.util.ArrayList;
 
 
 public class TaskList extends Node {
+    //tag标记
     private static final String TAG = TaskList.class.getSimpleName();
-
+    //当前TaskList的指针
     private int mIndex;
-
+    //类中主要的保存数据的单元，用来实现一个以Task为元素的ArrayList
     private ArrayList<Task> mChildren;
 
     public TaskList() {
@@ -43,6 +44,9 @@ public class TaskList extends Node {
         mIndex = 1;
     }
 
+    /*
+     * 生成并返回一个包含了一定数据的JSONObject实体
+     */
     public JSONObject getCreateAction(int actionId) {
         JSONObject js = new JSONObject();
 
@@ -74,6 +78,9 @@ public class TaskList extends Node {
         return js;
     }
 
+    /*
+     * 生成并返回一个包含了一定数据的JSONObject实体
+     * */
     public JSONObject getUpdateAction(int actionId) {
         JSONObject js = new JSONObject();
 
@@ -216,10 +223,17 @@ public class TaskList extends Node {
         return SYNC_ACTION_ERROR;
     }
 
+    /**
+     * 获得TaskList的大小，即mChildren的大小
+     */
     public int getChildTaskCount() {
         return mChildren.size();
     }
 
+    /**
+     * 返回值为是否成功添加任务。
+     * 在当前任务表末尾添加新的任务。
+     */
     public boolean addChildTask(Task task) {
         boolean ret = false;
         if (task != null && !mChildren.contains(task)) {
@@ -229,11 +243,18 @@ public class TaskList extends Node {
                 task.setPriorSibling(mChildren.isEmpty() ? null : mChildren
                         .get(mChildren.size() - 1));
                 task.setParent(this);
+                //注意：每一次ArrayList的变化都要紧跟相关Task中PriorSibling的更改
+                //，接下来几个函数都有相关操作
             }
         }
         return ret;
     }
 
+    /**
+     * @param task
+     * @param index
+     * @return 在当前任务表的指定位置添加新的任务。
+     */
     public boolean addChildTask(Task task, int index) {
         if (index < 0 || index > mChildren.size()) {
             Log.e(TAG, "add child task: invalid index");
@@ -260,6 +281,11 @@ public class TaskList extends Node {
         return true;
     }
 
+    /**
+     * @param task
+     * @return 返回删除是否成功
+     * 删除TaskList中的一个Task
+     */
     public boolean removeChildTask(Task task) {
         boolean ret = false;
         int index = mChildren.indexOf(task);
@@ -281,6 +307,11 @@ public class TaskList extends Node {
         return ret;
     }
 
+    /**
+     * @param task
+     * @param index
+     * @return 将当前TaskList中含有的某个Task移到index位置
+     */
     public boolean moveChildTask(Task task, int index) {
 
         if (index < 0 || index >= mChildren.size()) {
@@ -299,6 +330,10 @@ public class TaskList extends Node {
         return (removeChildTask(task) && addChildTask(task, index));
     }
 
+    /**
+     * @param gid
+     * @return返回寻找结果 按gid寻找Task
+     */
     public Task findChildTaskByGid(String gid) {
         for (int i = 0; i < mChildren.size(); i++) {
             Task t = mChildren.get(i);
@@ -309,10 +344,18 @@ public class TaskList extends Node {
         return null;
     }
 
+    /**
+     * @param task
+     * @return 返回指定Task的index
+     */
     public int getChildTaskIndex(Task task) {
         return mChildren.indexOf(task);
     }
 
+    /**
+     * @param index
+     * @return 返回指定index的Task
+     */
     public Task getChildTaskByIndex(int index) {
         if (index < 0 || index >= mChildren.size()) {
             Log.e(TAG, "getTaskByIndex: invalid index");
@@ -321,6 +364,10 @@ public class TaskList extends Node {
         return mChildren.get(index);
     }
 
+    /**
+     * @param gid
+     * @return 返回指定gid的Task
+     */
     public Task getChilTaskByGid(String gid) {
         for (Task task : mChildren) {
             if (task.getGid().equals(gid))
