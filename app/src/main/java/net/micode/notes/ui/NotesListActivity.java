@@ -72,11 +72,10 @@ import net.micode.notes.ui.NotesListAdapter.AppWidgetAttribute;
 import net.micode.notes.widget.NoteWidgetProvider_2x;
 import net.micode.notes.widget.NoteWidgetProvider_4x;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.util.HashSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class NotesListActivity extends Activity implements OnClickListener, OnItemLongClickListener {
     private static final int FOLDER_NOTE_LIST_QUERY_TOKEN = 0;
@@ -473,6 +472,15 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
         new AsyncTask<Void, Void, HashSet<AppWidgetAttribute>>() {
             protected HashSet<AppWidgetAttribute> doInBackground(Void... unused) {
                 HashSet<AppWidgetAttribute> widgets = mNotesListAdapter.getSelectedWidget();
+                HashSet<Long> noteIds = mNotesListAdapter.getSelectedItemIds();
+
+                // 删除图片
+                for (Long noteId : noteIds) {
+                    String noteContent = getNoteContent(noteId);
+                    if (!TextUtils.isEmpty(noteContent)) {
+                        deleteImagesFromContent(noteContent);
+                    }
+                }
                 if (!isSyncMode()) {
                     // if not synced, delete notes directly
                     if (DataUtils.batchDeleteNotes(mContentResolver, mNotesListAdapter
@@ -505,7 +513,51 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
             }
         }.execute();
     }
+    private String getNoteContent(long noteId) {
+        Cursor cursor = null;
+        try {
+            cursor = mContentResolver.query(
+                    Notes.CONTENT_DATA_URI,
+                    new String[]{"content"},
+                    "mime_type=? AND note_id=?",
+                    new String[]{"vnd.android.cursor.item/text_note", String.valueOf(noteId)},
+                    null
+            );
+            if (cursor != null && cursor.moveToFirst()) {
+                return cursor.getString(cursor.getColumnIndexOrThrow("content")); // 使用 "content" 字段
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting note content", e);
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+        return null;
+    }
 
+    private void deleteImagesFromContent(String content) {
+        Pattern pattern = Pattern.compile("\\[local](.*?)\\[/local]");
+        Matcher matcher = pattern.matcher(content);
+
+        while (matcher.find()) {
+            String imagePath = matcher.group(1);
+            deleteImage(imagePath);
+        }
+    }
+
+    private void deleteImage(String imagePath) {
+        if (imagePath != null) {
+            File file = new File(imagePath);
+            if (file.exists()) {
+                if (file.delete()) {
+                    Log.d(TAG, "Image deleted: " + imagePath);
+                } else {
+                    Log.e(TAG, "Failed to delete image: " + imagePath);
+                }
+            }
+        }
+    }
     private void deleteFolder(long folderId) {
         if (folderId == Notes.ID_ROOT_FOLDER) {
             Log.e(TAG, "Wrong folder id, should not happen " + folderId);

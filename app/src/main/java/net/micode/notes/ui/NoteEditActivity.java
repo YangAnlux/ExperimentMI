@@ -16,42 +16,40 @@
 
 package net.micode.notes.ui;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.AlertDialog;
 import android.app.PendingIntent;
 import android.app.SearchManager;
 import android.appwidget.AppWidgetManager;
-import android.content.ContentUris;
-import android.content.Context;
-import android.content.DialogInterface;
-import android.content.Intent;
-import android.content.SharedPreferences;
+import android.content.*;
+import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Paint;
+import android.net.Uri;
+import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.preference.PreferenceManager;
-import android.text.Spannable;
-import android.text.SpannableString;
-import android.text.TextUtils;
+import android.provider.DocumentsContract;
+import android.provider.MediaStore;
+import android.text.*;
 import android.text.format.DateUtils;
+import android.text.style.AlignmentSpan;
 import android.text.style.BackgroundColorSpan;
+import android.text.style.ClickableSpan;
+import android.text.style.ImageSpan;
 import android.util.Log;
-import android.view.LayoutInflater;
-import android.view.Menu;
-import android.view.MenuItem;
-import android.view.MotionEvent;
-import android.view.View;
+import android.view.*;
 import android.view.View.OnClickListener;
-import android.view.WindowManager;
-import android.widget.CheckBox;
-import android.widget.CompoundButton;
+import android.widget.*;
 import android.widget.CompoundButton.OnCheckedChangeListener;
-import android.widget.EditText;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.TextView;
-import android.widget.Toast;
 
+
+import androidx.annotation.RequiresApi;
 import net.micode.notes.R;
 import net.micode.notes.data.Notes;
 import net.micode.notes.data.Notes.TextNote;
@@ -65,15 +63,18 @@ import net.micode.notes.ui.NoteEditText.OnTextViewChangeListener;
 import net.micode.notes.widget.NoteWidgetProvider_2x;
 import net.micode.notes.widget.NoteWidgetProvider_4x;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.util.*;
+import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 
 public class NoteEditActivity extends Activity implements OnClickListener,
         NoteSettingChangedListener, OnTextViewChangeListener {
+    private String mPreviousContent = "";
     private class HeadViewHolder {
         public TextView tvModified;
 
@@ -149,7 +150,10 @@ public class NoteEditActivity extends Activity implements OnClickListener,
     private String mUserQuery;
     private Pattern mPattern;
 
+    private final int PHOTO_REQUEST=1;
+
     @Override
+
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         this.setContentView(R.layout.note_edit);
@@ -159,6 +163,72 @@ public class NoteEditActivity extends Activity implements OnClickListener,
             return;
         }
         initResources();
+
+        //根据id获取添加图片按钮
+        final ImageButton add_img_btn = (ImageButton) findViewById(R.id.add_img_btn);
+        //为点击图片按钮设置监听器
+        add_img_btn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Log.d(TAG, "onClick: click add image button");
+                //ACTION_GET_CONTENT: 允许用户选择特殊种类的数据，并返回（特殊种类的数据：照一张相片或录一段音）
+                Intent loadImage = new Intent(Intent.ACTION_GET_CONTENT);
+                //Category属性用于指定当前动作（Action）被执行的环境.
+                //CATEGORY_OPENABLE; 用来指示一个ACTION_GET_CONTENT的intent
+                loadImage.addCategory(Intent.CATEGORY_OPENABLE);
+                loadImage.setType("image/*");
+                startActivityForResult(loadImage, PHOTO_REQUEST);
+            }
+        });
+        // 添加 TextWatcher 监听文本变化
+        mNoteEditor.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                mPreviousContent = s.toString();
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                // 检测图片标签被删除
+                detectImageDeletion(mPreviousContent, s.toString());
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+
+            }
+
+        });
+    }
+    private void detectImageDeletion(String oldContent, String newContent) {
+        Pattern pattern = Pattern.compile("\\[local](.*?)\\[/local]");
+        Matcher oldMatcher = pattern.matcher(oldContent);
+        Matcher newMatcher = pattern.matcher(newContent);
+
+        Set<String> oldPaths = new HashSet<>();
+        Set<String> newPaths = new HashSet<>();
+
+        while (oldMatcher.find()) {
+            oldPaths.add(oldMatcher.group(1));
+        }
+
+        while (newMatcher.find()) {
+            newPaths.add(newMatcher.group(1));
+        }
+
+        // 找到被删除的图片路径
+        oldPaths.removeAll(newPaths);
+        for (String path : oldPaths) {
+            File imageFile = new File(path);
+            if (imageFile.exists()) {
+                boolean deleted = imageFile.delete();
+                if (deleted) {
+                    Log.d(TAG, "Deleted image file: " + path);
+                } else {
+                    Log.e(TAG, "Failed to delete image file: " + path);
+                }
+            }
+        }
     }
 
     /**
@@ -266,6 +336,7 @@ public class NoteEditActivity extends Activity implements OnClickListener,
     protected void onResume() {
         super.onResume();
         initNoteScreen();
+        convertToImage();
     }
 
     private void initNoteScreen() {
@@ -293,6 +364,7 @@ public class NoteEditActivity extends Activity implements OnClickListener,
          * is not ready
          */
         showAlertHeader();
+
     }
 
     private void showAlertHeader() {
@@ -321,6 +393,8 @@ public class NoteEditActivity extends Activity implements OnClickListener,
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
+        //在创建一个新的标签时，先在数据库中匹配
+        //如果不存在，那么先在数据库中存储
         /**
          * For new note without note id, we should firstly save it to
          * generate a id. If the editing note is not worth saving, there
@@ -329,6 +403,8 @@ public class NoteEditActivity extends Activity implements OnClickListener,
         if (!mWorkingNote.existInDatabase()) {
             saveNote();
         }
+        //在创建一个新的标签时，先在数据库中匹配
+        //如果不存在，那么先在数据库中存储
         outState.putLong(Intent.EXTRA_UID, mWorkingNote.getNoteId());
         Log.d(TAG, "Save working note id: " + mWorkingNote.getNoteId() + " onSaveInstanceState");
     }
@@ -430,7 +506,7 @@ public class NoteEditActivity extends Activity implements OnClickListener,
         if (id == R.id.btn_set_bg_color) {
             mNoteBgColorSelector.setVisibility(View.VISIBLE);
             findViewById(sBgSelectorSelectionMap.get(mWorkingNote.getBgColorId())).setVisibility(
-                    -                    View.VISIBLE);
+                    View.VISIBLE);
         } else if (sBgSelectorBtnsMap.containsKey(id)) {
             findViewById(sBgSelectorSelectionMap.get(mWorkingNote.getBgColorId())).setVisibility(
                     View.GONE);
@@ -606,8 +682,26 @@ public class NoteEditActivity extends Activity implements OnClickListener,
             }
         }
         mWorkingNote.markDeleted(true);
+        // 删除便签中的图片文件
+        deleteImagesInNote(mWorkingNote.getContent());
     }
+    private void deleteImagesInNote(String noteContent) {
+        Pattern pattern = Pattern.compile("\\[local](.*?)\\[/local]");
+        Matcher matcher = pattern.matcher(noteContent);
 
+        while (matcher.find()) {
+            String imagePath = matcher.group(1);
+            File imageFile = new File(imagePath);
+            if (imageFile.exists()) {
+                boolean deleted = imageFile.delete();
+                if (deleted) {
+                    Log.d(TAG, "Deleted image file: " + imagePath);
+                } else {
+                    Log.e(TAG, "Failed to delete image file: " + imagePath);
+                }
+            }
+        }
+    }
     private boolean isSyncMode() {
         return NotesPreferenceActivity.getSyncAccountName(this).trim().length() > 0;
     }
@@ -766,6 +860,14 @@ public class NoteEditActivity extends Activity implements OnClickListener,
         } else {
             mEditTextList.getChildAt(index).findViewById(R.id.cb_edit_item).setVisibility(View.GONE);
         }
+        // 更新 mPreviousContent 的值
+        StringBuilder s = new StringBuilder();
+        for (int i = 0; i < mEditTextList.getChildCount(); i++) {
+            View view = mEditTextList.getChildAt(i);
+            NoteEditText edit = (NoteEditText) view.findViewById(R.id.et_edit_text);
+            s.append(edit.getText()).append("\n");
+        }
+        mPreviousContent = s.toString(); // 正确解析 mPreviousContent
     }
 
     public void onCheckListModeChanged(int oldMode, int newMode) {
@@ -779,7 +881,9 @@ public class NoteEditActivity extends Activity implements OnClickListener,
             mNoteEditor.setText(getHighlightQueryResult(mWorkingNote.getContent(), mUserQuery));
             mEditTextList.setVisibility(View.GONE);
             mNoteEditor.setVisibility(View.VISIBLE);
+            convertToImage();
         }
+
     }
 
     private boolean getWorkingText() {
@@ -855,7 +959,272 @@ public class NoteEditActivity extends Activity implements OnClickListener,
             showToast(R.string.error_note_empty_for_send_to_desktop);
         }
     }
+    @RequiresApi(api = Build.VERSION_CODES.KITKAT)
+    public String getPath(final Context context, final Uri uri) {
+        final boolean isKitKat=Build.VERSION.SDK_INT>=Build.VERSION_CODES.KITKAT;
+        if (isKitKat && DocumentsContract.isDocumentUri(context, uri)) {
+            if (isMediaDocument(uri)) {
+                final String docId = DocumentsContract.getDocumentId(uri);
+                final String[] split = docId.split(":");
+                final String type = split[0];
+                Uri contentUri = null;
+                if ("image".equals(type)) {
+                    contentUri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+                }
+                final String selection = "_id=?";
+                final String[] selectionArgs = new String[]{split[1]};
+                return getDataColumn(context, contentUri, selection, selectionArgs);
+            }
+        }
+// Media
+        else if ("content".equalsIgnoreCase(uri.getScheme())) {
+            return getDataColumn(context, uri, null, null);
+        }
+        // File
+        else if ("file".equalsIgnoreCase(uri.getScheme())) {
+            return uri.getPath();
+        }
+        return null;
+    }
 
+    //获取数据列_获取此 Uri 的数据列的值。这对MediaStore Uris 和其他基于文件的 ContentProvider。
+    public String getDataColumn(Context context, Uri uri, String selection, String[] selectionArgs) {
+
+        Cursor cursor = null;
+        final String column = "_data";
+        final String[] projection = { column };
+        try {
+            try{
+                cursor = context.getContentResolver().query(uri, projection, selection, selectionArgs, null);
+            }catch (Exception e) {
+
+            }
+            if (cursor != null && cursor.moveToFirst()) {
+                final int column_index = cursor.getColumnIndexOrThrow(column);
+                return cursor.getString(column_index);
+            }
+        } finally {
+            if (cursor != null)
+                cursor.close();
+        }
+        return null;
+
+    }
+
+
+    //是否为媒体文件
+    public boolean isMediaDocument(Uri uri) {
+        return "com.android.providers.media.documents".equals(uri.getAuthority());
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.KITKAT)
+    protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
+        super.onActivityResult(requestCode, resultCode, intent);
+        ContentResolver resolver = getContentResolver();
+        switch (requestCode) {
+            case PHOTO_REQUEST:
+                Uri originalUri = intent.getData(); //1.获得图片的真实路径
+                Bitmap bitmap = null;
+                try {
+                    bitmap = BitmapFactory.decodeStream(resolver.openInputStream(originalUri));//2.解码图片
+                } catch (FileNotFoundException e) {
+                    Log.d(TAG, "onActivityResult: get file_exception");
+                    e.printStackTrace();
+                }
+
+                if (bitmap != null) {
+                    //3.根据Bitmap对象创建ImageSpan对象
+                    Log.d(TAG, "onActivityResult: bitmap is not null");
+                    ImageSpan imageSpan = new ImageSpan(NoteEditActivity.this, bitmap);
+                    String path = getPath(this, originalUri);
+                    //4.使用[local][/local]将path括起来，用于之后方便识别图片路径在note中的位置
+
+                    // 复制图片到应用私有目录
+                    String newPath = saveImageToAppSpecificStorage(bitmap);
+                    if (newPath != null) {
+                        path = newPath;
+                    } else {
+                        Log.e(TAG, "Failed to save image to app specific storage");
+                    }
+
+                    String img_fragment = "[local]" + path + "[/local]";
+                    //创建一个SpannableString对象，以便插入用ImageSpan对象封装的图像
+                    SpannableString spannableString = new SpannableString(img_fragment);
+                    spannableString.setSpan(imageSpan, 0, img_fragment.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    //5.将选择的图片追加到EditText中光标所在位置
+                    NoteEditText e = (NoteEditText) findViewById(R.id.note_edit_view);
+                    int index = e.getSelectionStart(); //获取光标所在位置
+                    Log.d(TAG, "Index是: " + index);
+                    Editable edit_text = e.getEditableText();
+                    edit_text.insert(index, spannableString); //将图片插入到光标所在位置
+
+                    mWorkingNote.mContent = e.getText().toString();
+                    //6.把改动提交到数据库中,两个数据库表都要改的
+                    ContentResolver contentResolver = getContentResolver();
+                    ContentValues contentValues = new ContentValues();
+                    final long id = mWorkingNote.getNoteId();
+                    contentValues.put("snippet", mWorkingNote.mContent);
+                    contentResolver.update(Uri.parse("content://micode_notes/note"), contentValues, "_id=?", new String[]{"" + id});
+                    ContentValues contentValues1 = new ContentValues();
+                    contentValues1.put("content", mWorkingNote.mContent);
+                    contentResolver.update(Uri.parse("content://micode_notes/data"), contentValues1, "mime_type=? and note_id=?", new String[]{"vnd.android.cursor.item/text_note", "" + id});
+
+                } else {
+                    Toast.makeText(NoteEditActivity.this, "获取图片失败", Toast.LENGTH_SHORT).show();
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    private String saveImageToAppSpecificStorage(Bitmap bitmap) {
+        File appSpecificStorageDir = getAppSpecificStorageDir(this, "notes_images");
+        File newFile = new File(appSpecificStorageDir, "note_image_" + System.currentTimeMillis() + ".jpg");
+        try {
+            FileOutputStream out = new FileOutputStream(newFile);
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out);
+            out.flush();
+            out.close();
+            return newFile.getAbsolutePath();
+        } catch (Exception e) {
+            Log.e(TAG, "Error saving image", e);
+        }
+        return null;
+    }
+
+
+    private void convertToImage() {
+        final NoteEditText noteEditText = findViewById(R.id.note_edit_view);
+        noteEditText.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                noteEditText.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                Editable editable = noteEditText.getEditableText();
+
+                String noteText = editable.toString();
+                int cursorPositionBeforeInsert = noteEditText.getSelectionStart();
+
+                // 使用正则表达式匹配图片标签
+                Pattern pattern = Pattern.compile("\\[local](.*?)\\[/local]");
+                Matcher matcher = pattern.matcher(noteText);
+
+                boolean inserted = false;
+                while (matcher.find()) {
+                    String path = matcher.group(1);
+
+                    // 直接加载图片
+                    Bitmap bitmap = loadImage(path);
+                    if (bitmap != null) {
+                        // 图片适配：根据控件宽度缩放图片
+                        int desiredWidth = noteEditText.getWidth();
+                        int originalWidth = bitmap.getWidth();
+                        int originalHeight = bitmap.getHeight();
+                        int desiredHeight = (originalHeight * desiredWidth) / originalWidth;
+
+                        Bitmap scaledBitmap = Bitmap.createScaledBitmap(bitmap, desiredWidth, desiredHeight, false);
+
+                        // 创建 ImageSpan
+                        ImageSpan imageSpan = new ImageSpan(NoteEditActivity.this, scaledBitmap);
+                        String ss = "[local]" + path + "[/local]";
+                        SpannableString spannableString = new SpannableString(ss);
+                        spannableString.setSpan(new AlignmentSpan.Standard(Layout.Alignment.ALIGN_CENTER), 0, ss.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE); // 设置居中对齐
+                        spannableString.setSpan(imageSpan, 0, ss.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+                        // 添加 ClickableSpan，使得点击图片末尾的光标可以和图片对齐
+                        ClickableSpan clickableSpan = new ClickableSpan() {
+                            @Override
+                            public void onClick(View view) {
+                                int selectionEnd = noteEditText.getSelectionEnd();
+                                if (selectionEnd == cursorPositionBeforeInsert) {
+                                    noteEditText.setSelection(cursorPositionBeforeInsert + 1);
+                                }
+                            }
+                        };
+                        spannableString.setSpan(clickableSpan, ss.length(), ss.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+                        // 替换原始文本
+                        editable.replace(matcher.start(), matcher.end(), spannableString);
+
+                        inserted = true;
+                        noteEditText.setSelection(cursorPositionBeforeInsert);
+
+                        // 移除多余的 ClickableSpan
+                        ClickableSpan[] spans = editable.getSpans(cursorPositionBeforeInsert, cursorPositionBeforeInsert, ClickableSpan.class);
+                        if (spans != null && spans.length > 0) {
+                            for (ClickableSpan span : spans) {
+                                editable.removeSpan(span);
+                            }
+                        }
+                    }
+                }
+
+                if (inserted) {
+                    editable.append("\n");
+                    // 在插入图片后为 NoteEditText 设置触摸事件监听器
+                    noteEditText.setOnTouchListener(new View.OnTouchListener() {
+                        @Override
+                        public boolean onTouch(View v, MotionEvent event) {
+                            int action = event.getAction();
+                            if (action == MotionEvent.ACTION_DOWN) {
+                                int offset = noteEditText.getOffsetForPosition(event.getX(), event.getY());
+                                ImageSpan[] imageSpans = editable.getSpans(0, editable.length(), ImageSpan.class);
+                                for (ImageSpan span : imageSpans) {
+                                    int start = editable.getSpanStart(span);
+                                    int end = editable.getSpanEnd(span);
+                                    if (offset >= start && offset <= end) {
+                                        // 如果光标位于图片所在行，返回 true，表示消费了该事件
+                                        return true;
+                                    }
+                                }
+                            }
+                            return false;
+                        }
+                    });
+                }
+            }
+        });
+    }
+
+
+    private File getAppSpecificStorageDir(Context context, String dirName) {
+        File file = new File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES), dirName);
+        if (!file.mkdirs()) {
+            Log.e(TAG, "Directory not created");
+        }
+        return file;
+    }
+    private Bitmap loadImage(String path) {
+        try {
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(path, options);
+
+            final int targetWidth = ((View) findViewById(R.id.note_edit_view)).getWidth();
+            options.inSampleSize = calculateInSampleSize(options, targetWidth);
+            options.inJustDecodeBounds = false;
+            options.inPreferredConfig = Bitmap.Config.RGB_565;
+
+            return BitmapFactory.decodeFile(path, options);
+        } catch (Exception e) {
+            Log.e(TAG, "图片解码失败: " + path, e);
+            return null;
+        }
+    }
+
+    // 计算缩放比例
+    private static int calculateInSampleSize(BitmapFactory.Options options, int reqWidth) {
+        final int width = options.outWidth;
+        int inSampleSize = 1;
+
+        if (width > reqWidth) {
+            final int halfWidth = width / 2;
+            while ((halfWidth / inSampleSize) >= reqWidth) {
+                inSampleSize *= 2;
+            }
+        }
+        return inSampleSize;
+    }
     private String makeShortcutIconTitle(String content) {
         content = content.replace(TAG_CHECKED, "");
         content = content.replace(TAG_UNCHECKED, "");
