@@ -33,6 +33,16 @@ public class NotesDatabaseHelper extends SQLiteOpenHelper {
     // 数据库版本号
     private static final int DB_VERSION = 4;
 
+    @Override
+    public void onCreate(SQLiteDatabase db) {
+
+    }
+
+    @Override
+    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+
+    }
+
     // 定义数据库表名的接口
     public interface TABLE {
         public static final String NOTE = "note"; // 笔记表名
@@ -306,4 +316,5 @@ public class NotesDatabaseHelper extends SQLiteOpenHelper {
         return mInstance;
     }
 
-    // 当数据库第一次创建时调用的方法，调用创建笔记表
+// 当数据库第一次创建时调用的方法，调用创建笔记表
+}

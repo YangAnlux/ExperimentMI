@@ -96,7 +96,7 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
 
     // 定义列表编辑状态的枚举
     private enum ListEditState {
-        NOTE_LIST, // 笔记列表状态
+        NOTE_LIST,  // 笔记列表状态
         SUB_FOLDER, // 子文件夹状态
         CALL_RECORD_FOLDER // 通话记录文件夹状态
     }
@@ -339,7 +339,7 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
 
         // 当列表项的选中状态改变时调用的方法
         public void onItemCheckedStateChanged(ActionMode mode, int position, long id,
-                boolean checked) {
+                                              boolean checked) {
             mNotesListAdapter.setCheckedItem(position, checked);
             updateMenu();
         }
@@ -362,7 +362,7 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
                     builder.setPositiveButton(android.R.string.ok,
                             new DialogInterface.OnClickListener() {
                                 public void onClick(DialogInterface dialog,
-                                        int which) {
+                                                    int which) {
                                     batchDelete();
                                 }
                             });
@@ -435,11 +435,11 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
     // 启动异步查询笔记列表数据的方法
     private void startAsyncNotesListQuery() {
         // 根据当前文件夹ID选择查询条件
-        String selection = (mCurrentFolderId == Notes.ID_ROOT_FOLDER) ? ROOT_FOLDER_SELECTION
+        String selection = (mCurrentFolderId == Notes.ID_ROOT_FOLDER)? ROOT_FOLDER_SELECTION
                 : NORMAL_SELECTION;
         // 启动异步查询
         mBackgroundQueryHandler.startQuery(FOLDER_NOTE_LIST_QUERY_TOKEN, null,
-                Notes.CONTENT_NOTE_URI, NoteItemData.PROJECTION, selection, new String[] {
+                Notes.CONTENT_NOTE_URI, NoteItemData.PROJECTION, selection, new String[]{
                         String.valueOf(mCurrentFolderId)
                 }, NoteColumns.TYPE + " DESC," + NoteColumns.MODIFIED_DATE + " DESC");
     }
@@ -505,75 +505,11 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
         this.startActivityForResult(intent, REQUEST_CODE_NEW_NODE);
     }
 
-    // 批量删除选中笔记的方法
-    private void batchDelete() {
-        new AsyncTask<Void, Void, HashSet<AppWidgetAttribute>>() {
-            protected HashSet<AppWidgetAttribute> doInBackground(Void... unused) {
-                // 获取选中笔记对应的小部件信息
-                HashSet<AppWidgetAttribute> widgets = mNotesListAdapter.getSelectedWidget();
-                if (!isSyncMode()) {
-                    // 非同步模式下直接删除笔记
-                    if (DataUtils.batchDeleteNotes(mContentResolver, mNotesListAdapter
-                            .getSelectedItemIds())) {
-                    } else {
-                        Log.e(TAG, "Delete notes error, should not happens");
-                    }
-                } else {
-                    // 同步模式下将笔记移动到回收站文件夹
-                    if (!DataUtils.batchMoveToFolder(mContentResolver, mNotesListAdapter
-                            .getSelectedItemIds(), Notes.ID_TRASH_FOLER)) {
-                        Log.e(TAG, "Move notes to trash folder error, should not happens");
-                    }
-                }
-                return widgets;
-            }
 
-            @Override
-            protected void onPostExecute(HashSet<AppWidgetAttribute> widgets) {
-                if (widgets != null) {
-                    for (AppWidgetAttribute widget : widgets) {
-                        if (widget.widgetId != AppWidgetManager.INVALID_APPWIDGET_ID
-                                && widget.widgetType != Notes.TYPE_WIDGET_INVALIDE) {
-                            // 更新相关小部件
-                            updateWidget(widget.widgetId, widget.widgetType);
-                        }
-                    }
-                }
-                // 结束多选模式
-                mModeCallBack.finishActionMode();
-            }
-        }.execute();
-    }
 
-    // 删除文件夹的方法
-    private void deleteFolder(long folderId) {
-        if (folderId == Notes.ID_ROOT_FOLDER) {
-            Log.e(TAG, "Wrong folder id, should not happen " + folderId);
-            return;
-        }
 
-        HashSet<Long> ids = new HashSet<Long>();
-        ids.add(folderId);
-        // 获取文件夹下笔记对应的小部件信息
-        HashSet<AppWidgetAttribute> widgets = DataUtils.getFolderNoteWidget(mContentResolver,
-                folderId);
-        if (!isSyncMode()) {
-            // 非同步模式下直接删除文件夹及其中的笔记
-            DataUtils.batchDeleteNotes(mContentResolver, ids);
-        } else {
-            // 同步模式下将文件夹及其中的笔记移动到回收站文件夹
-            DataUtils.batchMoveToFolder(mContentResolver, ids, Notes.ID_TRASH_FOLER);
-        }
-        if (widgets != null) {
-            for (AppWidgetAttribute widget : widgets) {
-                if (widget.widgetId != AppWidgetManager.INVALID_APPWIDGET_ID
-                        && widget.widgetType != Notes.TYPE_WIDGET_INVALIDE) {
-                    // 更新相关小部件
-                    updateWidget(widget.widgetId, widget.widgetType);
-                }
-            }
-        }
-    }
+
+
 
     // 打开笔记的方法
     private void openNode(NoteItemData data) {
@@ -602,169 +538,117 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
         mTitleBar.setVisibility(View.VISIBLE);
     }
 
-    private void batchDelete() {
-        new AsyncTask<Void, Void, HashSet<AppWidgetAttribute>>() {
-            protected HashSet<AppWidgetAttribute> doInBackground(Void... unused) {
-                HashSet<AppWidgetAttribute> widgets = mNotesListAdapter.getSelectedWidget();
-                HashSet<Long> noteIds = mNotesListAdapter.getSelectedItemIds();
-
-                // 删除图片
-                for (Long noteId : noteIds) {
-                    String noteContent = getNoteContent(noteId);
-                    if (!TextUtils.isEmpty(noteContent)) {
-                        deleteImagesFromContent(noteContent);
-                    }
-                }
-                if (!isSyncMode()) {
-                    // if not synced, delete notes directly
-                    if (DataUtils.batchDeleteNotes(mContentResolver, mNotesListAdapter
-                            .getSelectedItemIds())) {
-                    } else {
-                        Log.e(TAG, "Delete notes error, should not happens");
-                    }
-                } else {
-                    // in sync mode, we'll move the deleted note into the trash
-                    // folder
-                    if (!DataUtils.batchMoveToFolder(mContentResolver, mNotesListAdapter
-                            .getSelectedItemIds(), Notes.ID_TRASH_FOLER)) {
-                        Log.e(TAG, "Move notes to trash folder error, should not happens");
-                    }
-                }
-                return widgets;
-            }
-
-            @Override
-            protected void onPostExecute(HashSet<AppWidgetAttribute> widgets) {
-                if (widgets != null) {
-                    for (AppWidgetAttribute widget : widgets) {
-                        if (widget.widgetId != AppWidgetManager.INVALID_APPWIDGET_ID
-                                && widget.widgetType != Notes.TYPE_WIDGET_INVALIDE) {
-                            updateWidget(widget.widgetId, widget.widgetType);
-                        }
-                    }
-                }
-                mModeCallBack.finishActionMode();
-            }
-        }.execute();
-    }
-
-    private String getNoteContent(long noteId) {
-        Cursor cursor = null;
-        try {
-            cursor = mContentResolver.query(
-                    Notes.CONTENT_DATA_URI,
-                    new String[] { "content" },
-                    "mime_type=? AND note_id=?",
-                    new String[] { "vnd.android.cursor.item/text_note", String.valueOf(noteId) },
-                    null);
-            if (cursor != null && cursor.moveToFirst()) {
-                return cursor.getString(cursor.getColumnIndexOrThrow("content")); // 使用 "content" 字段
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error getting note content", e);
-        } finally {
-            if (cursor != null) {
-                cursor.close();
-            }
-        }
-        return null;
-    }
-
-    private void deleteImagesFromContent(String content) {
-        Pattern pattern = Pattern.compile("\\[local](.*?)\\[/local]");
-        Matcher matcher = pattern.matcher(content);
-
-        while (matcher.find()) {
-            String imagePath = matcher.group(1);
-            deleteImage(imagePath);
+    // 处理视图点击事件的方法
+    public void onClick(View v) {
+        switch (v.getId()) {
+            case R.id.btn_new_note:
+                createNewNote();
+                break;
+            case R.id.btn_change_background:
+                // 切换笔记列表背景
+                fl_note_list.setBackgroundResource(fl_note_list_backgrounds[curIndex]);
+                curIndex = (curIndex + 1) % fl_note_list_backgrounds.length;
+                break;
+            default:
+                break;
         }
     }
 
-    private void deleteImage(String imagePath) {
-        if (imagePath != null) {
-            File file = new File(imagePath);
-            if (file.exists()) {
-                if (file.delete()) {
-                    Log.d(TAG, "Image deleted: " + imagePath);
-                } else {
-                    Log.e(TAG, "Failed to delete image: " + imagePath);
-                }
-            }
+    // 显示软键盘的方法
+    private void showSoftInput() {
+        InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (inputMethodManager != null) {
+            inputMethodManager.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0);
         }
     }
 
-    private void deleteFolder(long folderId) {
-        if (folderId == Notes.ID_ROOT_FOLDER) {
-            Log.e(TAG, "Wrong folder id, should not happen " + folderId);
-            return;
-        }
-    } else {
-        etName.setText("");
-        builder.setTitle(this.getString(R.string.menu_create_folder));
+    // 隐藏软键盘的方法
+    private void hideSoftInput(View view) {
+        InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        inputMethodManager.hideSoftInputFromWindow(view.getWindowToken(), 0);
     }
 
-    builder.setPositiveButton(android.R.string.ok, null);
-    builder.setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
-        public void onClick(DialogInterface dialog, int which) {
-            hideSoftInput(etName);
-        }
-    });
-
-    final Dialog dialog = builder.setView(view).show();
-    final Button positive = (Button) dialog.findViewById(android.R.id.button1);
-    positive.setOnClickListener(new OnClickListener() {
-        public void onClick(View v) {
-            hideSoftInput(etName);
-            String name = etName.getText().toString();
-            if (DataUtils.checkVisibleFolderName(mContentResolver, name)) {
-                Toast.makeText(NotesListActivity.this, getString(R.string.folder_exist, name),
-                        Toast.LENGTH_LONG).show();
-                etName.setSelection(0, etName.length());
+    // 显示创建或修改文件夹对话框的方法
+    private void showCreateOrModifyFolderDialog(final boolean create) {
+        final AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View view = LayoutInflater.from(this).inflate(R.layout.dialog_edit_text, null);
+        final EditText etName = (EditText) view.findViewById(R.id.et_foler_name);
+        showSoftInput();
+        if (!create) {
+            if (mFocusNoteDataItem != null) {
+                etName.setText(mFocusNoteDataItem.getSnippet());
+                builder.setTitle(getString(R.string.menu_folder_change_name));
+            } else {
+                Log.e(TAG, "The long click data item is null");
                 return;
             }
-            if (!create) {
-                if (!TextUtils.isEmpty(name)) {
+        } else {
+            etName.setText("");
+            builder.setTitle(this.getString(R.string.menu_create_folder));
+        }
+
+        builder.setPositiveButton(android.R.string.ok, null);
+        builder.setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int which) {
+                hideSoftInput(etName);
+            }
+        });
+
+        final Dialog dialog = builder.setView(view).show();
+        final Button positive = (Button) dialog.findViewById(android.R.id.button1);
+        positive.setOnClickListener(new OnClickListener() {
+            public void onClick(View v) {
+                hideSoftInput(etName);
+                String name = etName.getText().toString();
+                if (DataUtils.checkVisibleFolderName(mContentResolver, name)) {
+                    Toast.makeText(NotesListActivity.this, getString(R.string.folder_exist, name),
+                            Toast.LENGTH_LONG).show();
+                    etName.setSelection(0, etName.length());
+                    return;
+                }
+                if (!create) {
+                    if (!TextUtils.isEmpty(name)) {
+                        ContentValues values = new ContentValues();
+                        values.put(NoteColumns.SNIPPET, name);
+                        values.put(NoteColumns.TYPE, Notes.TYPE_FOLDER);
+                        values.put(NoteColumns.LOCAL_MODIFIED, 1);
+                        mContentResolver.update(Notes.CONTENT_NOTE_URI, values, NoteColumns.ID
+                                + "=?", new String[]{
+                                String.valueOf(mFocusNoteDataItem.getId())
+                        });
+                    }
+                } else if (!TextUtils.isEmpty(name)) {
                     ContentValues values = new ContentValues();
                     values.put(NoteColumns.SNIPPET, name);
                     values.put(NoteColumns.TYPE, Notes.TYPE_FOLDER);
-                    values.put(NoteColumns.LOCAL_MODIFIED, 1);
-                    mContentResolver.update(Notes.CONTENT_NOTE_URI, values, NoteColumns.ID
-                            + "=?", new String[]{
-                            String.valueOf(mFocusNoteDataItem.getId())
-                    });
+                    mContentResolver.insert(Notes.CONTENT_NOTE_URI, values);
                 }
-            } else if (!TextUtils.isEmpty(name)) {
-                ContentValues values = new ContentValues();
-                values.put(NoteColumns.SNIPPET, name);
-                values.put(NoteColumns.TYPE, Notes.TYPE_FOLDER);
-                mContentResolver.insert(Notes.CONTENT_NOTE_URI, values);
+                dialog.dismiss();
             }
-            dialog.dismiss();
-        }
-    });
+        });
 
-    if (TextUtils.isEmpty(etName.getText())) {
-        positive.setEnabled(false);
+        if (TextUtils.isEmpty(etName.getText())) {
+            positive.setEnabled(false);
+        }
+        // 监听输入框文本变化，控制确定按钮的启用状态
+        etName.addTextChangedListener(new TextWatcher() {
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                // 未实现
+            }
+
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (TextUtils.isEmpty(etName.getText())) {
+                    positive.setEnabled(false);
+                } else {
+                    positive.setEnabled(true);
+                }
+            }
+
+            public void afterTextChanged(Editable s) {
+                // 未实现
+            }
+        });
     }
-    // 监听输入框文本变化，控制确定按钮的启用状态
-    etName.addTextChangedListener(new TextWatcher() {
-        public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-            // 未实现
-        }
-
-        public void onTextChanged(CharSequence s, int start, int before, int count) {
-            if (TextUtils.isEmpty(etName.getText())) {
-                positive.setEnabled(false);
-            } else {
-                positive.setEnabled(true);
-            }
-        }
-
-        public void afterTextChanged(Editable s) {
-            // 未实现
-        }
-    });
-}
 
     // 处理返回键点击事件的方法
     @Override
@@ -803,7 +687,7 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
             return;
         }
 
-        intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, new int[] {
+        intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, new int[]{
                 appWidgetId
         });
 
@@ -813,7 +697,15 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
 
     // 文件夹创建上下文菜单的监听器
     private final OnCreateContextMenuListener mFolderOnCreateContextMenuListener = new OnCreateContextMenuListener() {
-    public void onCreateContextMenu(ContextMenu menu, View v,ContextMenuInfo menuInfo){if(mFocusNoteDataItem!=null){menu.setHeaderTitle(mFocusNoteDataItem.getSnippet());menu.add(0,MENU_FOLDER_VIEW,0,R.string.menu_folder_view);menu.add(0,MENU_FOLDER_DELETE,0,R.string.menu_folder_delete);menu.add(0,MENU_FOLDER_CHANGE_NAME,0,R.string.menu_folder_change_name);}}};
+        public void onCreateContextMenu(ContextMenu menu, View v, ContextMenuInfo menuInfo) {
+            if (mFocusNoteDataItem != null) {
+                menu.setHeaderTitle(mFocusNoteDataItem.getSnippet());
+                menu.add(0, MENU_FOLDER_VIEW, 0, R.string.menu_folder_view);
+                menu.add(0, MENU_FOLDER_DELETE, 0, R.string.menu_folder_delete);
+                menu.add(0, MENU_FOLDER_CHANGE_NAME, 0, R.string.menu_folder_change_name);
+            }
+        }
+    };
 
     // 上下文菜单关闭时的回调方法
     @Override
@@ -867,7 +759,7 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
             getMenuInflater().inflate(R.menu.note_list, menu);
             // 根据同步状态设置同步菜单项的标题
             menu.findItem(R.id.menu_sync).setTitle(
-                    GTaskSyncService.isSyncing() ? R.string.menu_sync_cancel : R.string.menu_sync);
+                    GTaskSyncService.isSyncing()? R.string.menu_sync_cancel : R.string.menu_sync);
         } else if (mState == ListEditState.SUB_FOLDER) {
             getMenuInflater().inflate(R.menu.sub_folder, menu);
         } else if (mState == ListEditState.CALL_RECORD_FOLDER) {
@@ -951,8 +843,7 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
                             .getString(R.string.success_sdcard_export));
                     builder.setMessage(NotesListActivity.this.getString(
                             R.string.format_exported_file_location, backup
-                                    .getExportedTextFileName(),
-                            backup.getExportedTextFileDir()));
+                                    .getExportedTextFileName(), backup.getExportedTextFileDir()));
                     builder.setPositiveButton(android.R.string.ok, null);
                     builder.show();
                 } else if (result == BackupUtils.STATE_SYSTEM_ERROR) {
@@ -1026,15 +917,15 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
     // 启动查询目标文件夹的方法
     private void startQueryDestinationFolders() {
         String selection = NoteColumns.TYPE + "=? AND " + NoteColumns.PARENT_ID + "<>? AND " + NoteColumns.ID + "<>?";
-        selection = (mState == ListEditState.NOTE_LIST) ? selection
-                : "(" + selection + ") OR (" + NoteColumns.ID + "=" + Notes.ID_ROOT_FOLDER + ")";
+        selection = (mState == ListEditState.NOTE_LIST) ? selection :
+                "(" + selection + ") OR (" + NoteColumns.ID + "=" + Notes.ID_ROOT_FOLDER + ")";
 
         mBackgroundQueryHandler.startQuery(FOLDER_LIST_QUERY_TOKEN,
                 null,
                 Notes.CONTENT_NOTE_URI,
                 FoldersListAdapter.PROJECTION,
                 selection,
-                new String[] {
+                new String[]{
                         String.valueOf(Notes.TYPE_FOLDER),
                         String.valueOf(Notes.ID_TRASH_FOLER),
                         String.valueOf(mCurrentFolderId)
@@ -1059,4 +950,123 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
         }
         return false;
     }
+    // 批量删除选中笔记的方法
+    private void batchDelete() {
+        new AsyncTask<Void, Void, HashSet<AppWidgetAttribute>>() {
+            protected HashSet<AppWidgetAttribute> doInBackground(Void... unused) {
+                HashSet<AppWidgetAttribute> widgets = mNotesListAdapter.getSelectedWidget();
+                HashSet<Long> noteIds = mNotesListAdapter.getSelectedItemIds();
+
+                // 删除图片
+                for (Long noteId : noteIds) {
+                    String noteContent = getNoteContent(noteId);
+                    if (!TextUtils.isEmpty(noteContent)) {
+                        deleteImagesFromContent(noteContent);
+                    }
+                }
+                if (!isSyncMode()) {
+                    // if not synced, delete notes directly
+                    if (DataUtils.batchDeleteNotes(mContentResolver, mNotesListAdapter
+                            .getSelectedItemIds())) {
+                    } else {
+                        Log.e(TAG, "Delete notes error, should not happens");
+                    }
+                } else {
+                    // in sync mode, we'll move the deleted note into the trash
+                    // folder
+                    if (!DataUtils.batchMoveToFolder(mContentResolver, mNotesListAdapter
+                            .getSelectedItemIds(), Notes.ID_TRASH_FOLER)) {
+                        Log.e(TAG, "Move notes to trash folder error, should not happens");
+                    }
+                }
+                return widgets;
+            }
+
+            @Override
+            protected void onPostExecute(HashSet<AppWidgetAttribute> widgets) {
+                if (widgets != null) {
+                    for (AppWidgetAttribute widget : widgets) {
+                        if (widget.widgetId != AppWidgetManager.INVALID_APPWIDGET_ID
+                                && widget.widgetType != Notes.TYPE_WIDGET_INVALIDE) {
+                            updateWidget(widget.widgetId, widget.widgetType);
+                        }
+                    }
+                }
+                mModeCallBack.finishActionMode();
+            }
+        }.execute();
+    }
+    private String getNoteContent(long noteId) {
+        Cursor cursor = null;
+        try {
+            cursor = mContentResolver.query(
+                    Notes.CONTENT_DATA_URI,
+                    new String[]{"content"},
+                    "mime_type=? AND note_id=?",
+                    new String[]{"vnd.android.cursor.item/text_note", String.valueOf(noteId)},
+                    null
+            );
+            if (cursor != null && cursor.moveToFirst()) {
+                return cursor.getString(cursor.getColumnIndexOrThrow("content")); // 使用 "content" 字段
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting note content", e);
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+        return null;
+    }
+
+    private void deleteImagesFromContent(String content) {
+        Pattern pattern = Pattern.compile("\\[local](.*?)\\[/local]");
+        Matcher matcher = pattern.matcher(content);
+
+        while (matcher.find()) {
+            String imagePath = matcher.group(1);
+            deleteImage(imagePath);
+        }
+    }
+
+    private void deleteImage(String imagePath) {
+        if (imagePath != null) {
+            File file = new File(imagePath);
+            if (file.exists()) {
+                if (file.delete()) {
+                    Log.d(TAG, "Image deleted: " + imagePath);
+                } else {
+                    Log.e(TAG, "Failed to delete image: " + imagePath);
+                }
+            }
+        }
+    }
+    // 删除文件夹的方法
+    private void deleteFolder (long folderId) {
+        if (folderId == Notes.ID_ROOT_FOLDER) {
+            Log.e(TAG, "Wrong folder id, should not happen " + folderId);
+            return;
+        }
+
+        HashSet<Long> ids = new HashSet<Long>();
+        ids.add(folderId);
+        HashSet<AppWidgetAttribute> widgets = DataUtils.getFolderNoteWidget(mContentResolver,
+                folderId);
+        if (!isSyncMode()) {
+            // if not synced, delete folder directly
+            DataUtils.batchDeleteNotes(mContentResolver, ids);
+        } else {
+            // in sync mode, we'll move the deleted folder into the trash folder
+            DataUtils.batchMoveToFolder(mContentResolver, ids, Notes.ID_TRASH_FOLER);
+        }
+        if (widgets != null) {
+            for (AppWidgetAttribute widget : widgets) {
+                if (widget.widgetId != AppWidgetManager.INVALID_APPWIDGET_ID
+                        && widget.widgetType != Notes.TYPE_WIDGET_INVALIDE) {
+                    updateWidget(widget.widgetId, widget.widgetType);
+                }
+            }
+        }
+    }
+
 }

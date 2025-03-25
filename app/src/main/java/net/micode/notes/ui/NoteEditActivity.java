@@ -276,6 +276,7 @@ public class NoteEditActivity extends Activity implements OnClickListener,
 
             // 如果笔记在数据库中不可见，则跳转到NotesListActivity并显示错误提示
             if (!DataUtils.visibleInNoteDatabase(getContentResolver(), noteId, Notes.TYPE_NOTE)) {
+
                 Intent jump = new Intent(this, NotesListActivity.class);
                 startActivity(jump);
                 showToast(R.string.error_note_not_exist);
@@ -1143,7 +1144,6 @@ public class NoteEditActivity extends Activity implements OnClickListener,
         return null;
     }
 
-    <<<<<<<HEAD
 
     // 获取数据列_获取此 Uri 的数据列的值。这对MediaStore Uris 和其他基于文件的 ContentProvider。
     public String getDataColumn(Context context, Uri uri, String selection, String[] selectionArgs) {
@@ -1381,9 +1381,7 @@ public class NoteEditActivity extends Activity implements OnClickListener,
             }
         }
         return inSampleSize;
-    }=======
-    // 生成快捷方式图标的标题的方法
-    >>>>>>>d16614a0e5a7ac6f06af8130f3224e526a425737
+    }
 
     private String makeShortcutIconTitle(String content) {
         // 去除内容中的选中和未选中标签
