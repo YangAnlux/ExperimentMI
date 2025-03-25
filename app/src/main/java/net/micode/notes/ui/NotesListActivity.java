@@ -93,6 +93,8 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
     private static final int MENU_FOLDER_CHANGE_NAME = 2;
     // 存储应用介绍是否已添加的偏好设置键
     private static final String PREFERENCE_ADD_INTRODUCTION = "net.micode.notes.introduction";
+    //共享参数,用于保存用户喜好的背景图片
+    private SharedPreferences config;
 
     // 定义列表编辑状态的枚举
     private enum ListEditState {
@@ -231,6 +233,7 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
 
     // 初始化资源的方法
     private void initResources() {
+        config = getSharedPreferences("config",Context.MODE_PRIVATE);
         mContentResolver = this.getContentResolver();
         mBackgroundQueryHandler = new BackgroundQueryHandler(this.getContentResolver());
         mCurrentFolderId = Notes.ID_ROOT_FOLDER;
@@ -253,6 +256,9 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
         mTitleBar = (TextView) findViewById(R.id.tv_title_bar);
         mState = ListEditState.NOTE_LIST;
         mModeCallBack = new ModeCallback();
+
+        curIndex = config.getInt("background",0);
+        fl_note_list.setBackgroundResource(fl_note_list_backgrounds[curIndex]);
     }
 
     // 处理列表视图多选模式和菜单项点击的回调类
@@ -546,8 +552,13 @@ public class NotesListActivity extends Activity implements OnClickListener, OnIt
                 break;
             case R.id.btn_change_background:
                 // 切换笔记列表背景
-                fl_note_list.setBackgroundResource(fl_note_list_backgrounds[curIndex]);
                 curIndex = (curIndex + 1) % fl_note_list_backgrounds.length;
+                fl_note_list.setBackgroundResource(fl_note_list_backgrounds[curIndex]);
+
+                //保存背景图片编号到共享参数
+                SharedPreferences.Editor editor = config.edit();
+                editor.putInt("background",curIndex);
+                editor.commit();
                 break;
             default:
                 break;
