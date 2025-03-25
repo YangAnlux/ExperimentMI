@@ -160,7 +160,7 @@ public class DateTimePicker extends FrameLayout {
 
     public interface OnDateTimeChangedListener {
         void onDateTimeChanged(DateTimePicker view, int year, int month,
-                int dayOfMonth, int hourOfDay, int minute);
+                               int dayOfMonth, int hourOfDay, int minute);
     }
 
     public DateTimePicker(Context context) {
@@ -263,7 +263,7 @@ public class DateTimePicker extends FrameLayout {
      * @param minute The current minute
      */
     public void setCurrentDate(int year, int month,
-            int dayOfMonth, int hourOfDay, int minute) {
+                               int dayOfMonth, int hourOfDay, int minute) {
         setCurrentYear(year);
         setCurrentMonth(month);
         setCurrentDay(dayOfMonth);

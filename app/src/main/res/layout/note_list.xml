@@ -16,14 +16,25 @@
 -->
 
 <FrameLayout
+    android:id="@+id/fl_note_list"
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
-    android:background="@drawable/list_background">
+    android:background="@drawable/pengyuyan">
+
+    <android.widget.Button
+        android:id="@+id/btn_change_background"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="#00000000"
+        android:layout_marginLeft="7sp"
+        android:text="更换背景"
+        android:textSize="17sp"/>
 
     <LinearLayout
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
+        android:layout_marginTop="23sp"
         android:orientation="vertical">
 
         <TextView
@@ -43,9 +54,9 @@
             android:layout_height="0dip"
             android:layout_weight="1"
             android:cacheColorHint="@null"
-            android:listSelector="@android:color/transparent"
             android:divider="@null"
-            android:fadingEdge="@null" />
+            android:fadingEdge="@null"
+            android:listSelector="@android:color/transparent" />
     </LinearLayout>
 
     <Button

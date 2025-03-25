@@ -36,7 +36,7 @@ import java.io.IOException;                 // IO异常处理
  * 2. 播放系统默认闹铃音效
  * 3. 提供进入编辑界面或关闭提醒的选项
  */
-public class AlarmAlertActivity extends Activity implements OnClickListener, OnDismissListener {
+public class AlarmAlertActivity extends Activity implements DialogInterface.OnClickListener, DialogInterface.OnDismissListener {
     // 变量注释 =========================================================
     private long mNoteId;                    // 当前提醒关联的便签ID
     private String mSnippet;                 // 便签内容摘要
